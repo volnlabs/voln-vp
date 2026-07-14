@@ -1,6 +1,6 @@
 # voln-vp Design: Virtual Platform for axiomOS Development
 
-**Date:** 2026-07-14 (revised 2026-07-15 after external review)
+**Date:** 2026-07-14 (revised 2026-07-15 after two external review rounds)
 **Status:** Approved design, pre-implementation
 **Context:** axiomOS boots on QEMU virt (x86_64, AArch64, RISC-V) and on real
 Raspberry Pi 5 with full userspace, eBPF, GPIO/PWM/IIO drivers, and a measured
@@ -22,6 +22,27 @@ development environment. It answers, before touching hardware:
 Composition over construction: QEMU, Renode, and gem5 do what they already do
 well; voln-vp never reimplements a simulator and never forks QEMU.
 
+**Ownership split:** the *data* belongs to voln-vp — board descriptions and
+trace files are simulator-neutral, versioned voln-vp formats. The *execution*
+belongs to backends. Backend-native artifacts (Renode `.repl` renders, Python
+device models, Robot suites) are accepted as backend-specific: if a backend
+is ever replaced, register-level device models port mechanically; we document
+that risk rather than building speculative converter layers around it.
+
+**Developer experience is the product.** A developer who clones axiomOS
+should get a workflow that feels like web development:
+
+```
+cargo install voln-vp
+voln-vp doctor          # verify qemu/renode/toolchains present
+voln-vp run  --board virt-pi5
+voln-vp test --board virt-pi5
+voln-vp replay imu.trace     (later)
+voln-vp flash                (later, real hardware)
+```
+
+Nobody should need to remember which simulator runs underneath.
+
 ## Non-Goals / Stated Boundaries
 
 - **Firmware stage is not simulated.** No open tool models the Pi 5 bootrom →
@@ -37,10 +58,22 @@ well; voln-vp never reimplements a simulator and never forks QEMU.
 - **Custom GUI / visualization:** not built. Future slots: perfetto trace
   export (kernel trace events → Perfetto timeline) and a VS Code extension
   wrapping the CLI. Nothing now.
+- **Distributed simulation** (Pi5 + MCU + CAN + sensors as separate
+  simulators): not built. Backends are already separate processes, so a
+  future bridge backend over sockets is not foreclosed. No message-bus
+  abstraction is designed today.
 
 ## Architecture
 
-### Backends, boards, and the adapter contract
+### Boards first, backends second
+
+Users think in boards, not simulators: the primary axis is
+`voln-vp run --board virt-pi5`. Each board manifest (`board.toml`) declares
+which backends support it and which is the default; `--backend` overrides.
+The board list grows (virt-pi5 today; rk3588, jetson, MCUs later) without the
+user learning a new tool per simulator.
+
+### Backends and the adapter contract
 
 The core knows **no backend by name**. Each backend is a self-describing
 directory implementing a small adapter contract; the runner discovers backend
@@ -75,8 +108,18 @@ directory satisfying the contract. Zero core change. No plugin-manager
 subsystem is built — directory discovery + contract is the entire mechanism;
 a manager appears only if backend count ever makes discovery insufficient.
 
-**Boards** are declarative descriptions (memory map, DTB, platform files)
-consumed by backends: `boards/virt/` (generic QEMU), `boards/virt-pi5/`.
+**Boards** are simulator-neutral declarative descriptions owned by voln-vp:
+`board.toml` (memory map, peripheral inventory, DTB reference, supported
+backends + default) plus per-backend renders in subdirectories (e.g.
+`boards/virt-pi5/renode/virt-pi5.repl`). The neutral manifest is the source
+of truth; backend renders derive from it.
+
+**The CLI stays stupid.** Its complete job description:
+discover → validate → launch → collect exit code. It is explicitly forbidden
+from growing into a scheduler, workflow engine, configuration language, or
+plugin loader. Verbs now: `doctor` (verify simulators/toolchains installed),
+`run`, `test`. Reserved verbs, no code now: `bench`, `replay`, `trace`,
+`flash`.
 
 ### What each backend answers
 
@@ -125,8 +168,11 @@ models (Raspberry Pi Pico support). Phase 3 therefore starts with an audit:
 map each RP1 block the axiomOS drivers touch against Renode's RP2040 models,
 adapt what matches, and write only the genuinely missing pieces.
 
-- Custom models written as Renode **Python peripherals**; C# only where
-  Python hits limits.
+- Custom models written as Renode **Python peripherals** first. Python
+  peripherals are interpreted per register access — a peripheral hammered on
+  every GPIO toggle or interrupt may bottleneck. Migration path, explicit:
+  prototype in Python → profile once the driver suite is green → rewrite
+  only measured-hot peripherals in C#. No premature C#.
 - **Register-accurate for registers the axiomOS drivers touch**;
   datasheet-complete where the driver needs it. Models are built in the phase
   where the driver test suite demands them — never speculatively.
@@ -145,9 +191,10 @@ adapt what matches, and write only the genuinely missing pieces.
   transactions; devices answer with injected values.
 - **Value injection:** Renode monitor commands + Robot Framework keywords,
   e.g. `inject imu.accel_x 9.81 @ t=10ms`.
-- **Trace replay:** timestamped CSV recorded from real Pi 5 runs, delivered
-  at virtual-time timestamps. Deterministic: same trace → identical execution
-  every run. Trace files carry a format version field.
+- **Trace replay:** traces recorded from real Pi 5 runs, delivered at
+  virtual-time timestamps. Deterministic: same trace → identical execution
+  every run. Trace format is a voln-vp-owned specification (see Trace
+  Format), not a Renode artifact.
 - **Actuator capture:** PWM model logs duty/period changes with virtual
   timestamps, enabling assertions like "PWM reached 50% within 5 ms (virtual)
   of IMU spike".
@@ -157,23 +204,24 @@ adapt what matches, and write only the genuinely missing pieces.
 
 ## gem5 Backend (Reserved, Deferred)
 
-Built when latency work actually starts, not in the initial rollout. The
-backend directory and adapter contract slot are defined now so it lands
-without core changes. Design, recorded for that day:
+Future latency-analysis backend, built when latency work actually starts.
+One design fact preserved: latency numbers are only trustworthy after
+**calibration against real Pi 5 golden numbers** (211 ns IRQ latency is the
+first anchor) with a committed tolerance band. Until then, latency
+regressions are caught by Renode instruction-count proxies and validated on
+hardware.
 
-- ARM **full-system mode**, boots the same axiomOS image at kernel entry.
-- **O3 CPU** parameterized toward Cortex-A76 (~4-wide decode, ~128-entry
-  ROB-class window, A76-like branch predictor); caches matching BCM2712
-  (64 KB L1I + 64 KB L1D per core, 512 KB private L2, 2 MB shared L3);
-  LPDDR4X-class DRAM model. Generic devices only — no RP1.
-- **Calibration:** microbenchmark suite (IRQ latency, syscall round-trip,
-  context switch, memcpy bandwidth) measured on real Pi 5 → golden numbers
-  (211 ns IRQ latency is the first anchor); gem5 parameters tuned until every
-  benchmark is within ±15%; calibration manifest committed. Nightly runs diff
-  against the manifest; drift fails the run.
+## Trace Format
 
-Until then, latency regressions are caught by Renode instruction-count
-proxies and validated on hardware.
+Traces are a voln-vp-owned, simulator-neutral asset (`traces/`). One-page
+specification, versioned:
+
+- **Header:** format version, sensor type, units, sample rate, calibration
+  reference, recording provenance (board, date, kernel version), checksum.
+- **Body:** timestamped samples.
+
+Consumers today: Renode replay. The spec stays one page until a second
+consumer (Gazebo bridge, another simulator, offline analysis) exists.
 
 ## Repository Layout
 
@@ -181,8 +229,8 @@ This repository, renamed **voln-vp**:
 
 ```
 voln-vp/
-  cli/                     # thin Rust runner: discovers backends/, dispatches
-                           #   voln-vp <run|test|bench> --backend <name> --board <name>
+  cli/                     # thin Rust runner: discover, validate, launch,
+                           #   collect exit code — nothing else
   backends/
     qemu/                  # manifest + adapters wrapping existing virt configs
     renode/
@@ -190,12 +238,15 @@ voln-vp/
                            #   models don't cover)
       scripts/             # .resc boot/scenario scripts
       tests/               # Robot Framework suites
-    gem5/                  # reserved: manifest + design notes, no implementation
+    gem5/                  # reserved: manifest only, no implementation
   boards/
-    virt/                  # generic QEMU virt board descriptions (3 arches)
-    virt-pi5/              # virt-pi5.repl, memory map, DTB
+    virt/                  # board.toml (neutral) — generic QEMU virt, 3 arches
+    virt-pi5/
+      board.toml           # neutral source of truth: memory map, peripherals,
+                           #   DTB ref, supported backends + default
+      renode/virt-pi5.repl # backend-specific render
   devices/                 # fake sensors: imu.py, adc_chip.py
-  traces/                  # recorded Pi 5 sensor traces (versioned format)
+  traces/                  # voln-vp trace format (see Trace Format section)
   ci/
   docs/
 ```
@@ -207,9 +258,9 @@ over-wrap what the backends already are.
 ## Interfaces
 
 - **CLI** is the single entry point for humans and CI:
-  `voln-vp <run|test|bench> --backend <name> --board <name> [args]`.
-  Backends are discovered from `backends/`, never hardcoded. Simulator exit
-  codes propagate.
+  `voln-vp <doctor|run|test> --board <name> [--backend <name>] [args]`.
+  Board manifest picks the default backend; backends are discovered from
+  `backends/`, never hardcoded. Simulator exit codes propagate.
 - **Kernel ↔ backend:** the unmodified axiomOS image. No sim-specific kernel
   code paths; the machine is made to fit the kernel, not vice versa.
 - **Backend ↔ core:** the adapter contract (manifest + verb entry points +
@@ -246,8 +297,9 @@ over-wrap what the backends already are.
    Proves Renode CPU viability before any custom modeling. If Renode's
    ARMv8-A support proves inadequate here, revisit backend choice before
    proceeding.
-2. CLI skeleton + adapter contract; qemu backend wrapped (existing flow);
-   `virt-pi5.repl` + mailbox stub → boot to userspace on the Pi 5 memory map.
+2. CLI skeleton (`doctor`, `run`, `test`) + adapter contract + board
+   manifests; qemu backend wrapped (existing flow); `virt-pi5.repl` +
+   mailbox stub → boot to userspace on the Pi 5 memory map.
 3. **RP2040-model audit**, then PCIe RC + remaining RP1 models → per-commit
    driver suite green. *(Largest phase; the flat-map fallback decision point
    lives here.)*
@@ -263,7 +315,11 @@ over-wrap what the backends already are.
 | Project framing | Developer platform (voln-vp): compose existing tools behind one CLI | Building/owning another simulator |
 | Overall approach | Hybrid: QEMU smoke + Renode complete machine + gem5 latency slot | Renode-only; QEMU fork with raspi5 machine |
 | Machine completeness | Full — all RP1 peripherals drivers touch, 4 cores, full memory map | Trimmed minimal machine |
-| Latency backend | gem5 **deferred to reserved slot** (revised 2026-07-15; was "day one") | Day-one calibrated gem5 build |
+| Latency backend | gem5 reserved slot, design compressed to calibration note (revised twice 2026-07-15; was "day one") | Day-one calibrated gem5 build; full deletion per reviewer |
+| Primary CLI axis | Board-first (`--board`, backend defaulted from board manifest) | Backend-first `--tier`/`--backend` axis |
+| Artifact ownership | Traces + board manifests = neutral voln-vp formats; device models + Robot suites = backend-native, port cost accepted | Simulator-agnostic device/scenario abstraction with converters |
+| Peripheral language | Python first, profile, rewrite measured-hot models in C# | Premature C#; Python forever |
+| Distributed sim | Not foreclosed (backends are processes); nothing designed | Message-bus abstraction now |
 | RP1 attachment | Full PCIe model (RC + endpoint + BARs) | Flat-mapped registers (kept as fallback) |
 | RP1 model sourcing | Adapt Renode RP2040 models first, write only gaps (added 2026-07-15) | Writing all models from scratch |
 | Device abstraction | None — drivers speak RP1 registers, kernel unmodified | Generic Device→GPIO/PWM interface layer |
