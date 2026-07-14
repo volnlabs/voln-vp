@@ -1,0 +1,54 @@
+/dts-v1/;
+/memreserve/ 0 0;
+
+/ {
+    #address-cells = <2>;
+    #size-cells = <2>;
+    compatible = "axiomos,virt-pi5-stub", "linux,dummy-virt";
+    model = "axiomOS virt-pi5 stub (phase 1 — QEMU virt topology)";
+
+    chosen {
+        stdout-path = "uart0:serial@9000000";
+    };
+
+    cpus {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        cpu@0 {
+            device_type = "cpu";
+            compatible = "arm,cortex-a76";
+            reg = <0>;
+            enable-method = "psci";
+        };
+    };
+
+    memory@40000000 {
+        device_type = "memory";
+        reg = <0x0 0x40000000 0x0 0x40000000>; /* 1 GiB at 0x4000_0000 */
+    };
+
+    intc: interrupt-controller@8000000 {
+        compatible = "arm,cortex-a15-gic";
+        #interrupt-cells = <3>;
+        #address-cells = <2>;
+        #size-cells = <2>;
+        interrupt-controller;
+        reg = <0x0 0x08000000 0x0 0x10000>,
+              <0x0 0x08010000 0x0 0x10000>;
+    };
+
+    timer {
+        compatible = "arm,armv8-timer";
+        interrupts = <1 13 0xf04>,
+                     <1 14 0xf04>,
+                     <1 11 0xf04>,
+                     <1 10 0xf04>;
+    };
+
+    uart0: serial@9000000 {
+        compatible = "arm,pl011", "arm,primecell";
+        reg = <0x0 0x09000000 0x0 0x1000>;
+        interrupts = <0 1 4>;
+        current-speed = <115200>;
+    };
+};
