@@ -1,0 +1,66 @@
+/dts-v1/;
+
+/ {
+    compatible = "axiomos,virt-pi5", "raspberrypi,5-model-b";
+    model = "axiomOS virtual Raspberry Pi 5";
+    #address-cells = <2>;
+    #size-cells = <2>;
+    interrupt-parent = <&gic>;
+
+    chosen {
+        stdout-path = &uart0;
+    };
+
+    aliases {
+        serial0 = &uart0;
+    };
+
+    cpus {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        cpu0: cpu@0 {
+            device_type = "cpu";
+            compatible = "arm,cortex-a78";
+            reg = <0>;
+            enable-method = "spin-table";
+        };
+    };
+
+    memory@0 {
+        device_type = "memory";
+        reg = <0x0 0x0 0x2 0x0>;
+    };
+
+    gic: interrupt-controller@107fff9000 {
+        compatible = "arm,gic-400";
+        #interrupt-cells = <3>;
+        interrupt-controller;
+        reg = <0x10 0x7fff9000 0x0 0x10000>,
+              <0x10 0x7fffa000 0x0 0x10000>;
+    };
+
+    timer {
+        compatible = "arm,armv8-timer";
+        interrupts = <1 13 0x8>,
+                     <1 14 0x8>,
+                     <1 11 0x8>,
+                     <1 10 0x8>;
+        clock-frequency = <54000000>;
+    };
+
+    uart0: serial@107d001000 {
+        compatible = "arm,pl011", "arm,primecell";
+        reg = <0x10 0x7d001000 0x0 0x1000>;
+        interrupts = <0 121 0x4>;
+        clock-frequency = <48000000>;
+        current-speed = <115200>;
+        status = "okay";
+    };
+
+    mailbox: mailbox@107d00b880 {
+        compatible = "axiomos,firmware-mailbox";
+        reg = <0x10 0x7d00b880 0x0 0x40>;
+        status = "okay";
+    };
+};

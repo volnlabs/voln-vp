@@ -14,4 +14,4 @@ uart0 = "0x107d001000"
 mailbox = "0x107d00b880"
 
 [dtb]
-path = "renode/virt-pi5.dts"
+path = "boards/virt-pi5/virt-pi5.dtb"

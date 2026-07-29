@@ -31,7 +31,7 @@ phase 2 — CLI + adapter contract + virt-pi5 boot
   [x] 2.8 virt-pi5 board manifest
   [x] 2.9 --dry-run flag
   [x] 2.10 mailbox stub Python peripheral
-  [ ] 2.11 virt-pi5 DTB (real, not phase 1 stub)
+  [x] 2.11 virt-pi5 DTB (real, not phase 1 stub)
   [ ] 2.12 virt-pi5.repl + boot script
   [ ] 2.13 verify boot-to-userspace
 
