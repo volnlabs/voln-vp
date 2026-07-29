@@ -1,0 +1,15 @@
+:name: axiomOS ARMv8-A Risk Gate (Phase 1)
+
+# Stock Cortex-A78 platform from Renode's bundled models.
+# UART @ 0x09000000, GIC @ 0x08000000, RAM @ 0x40000000 (1 GiB).
+# The shell driver sets these variables before including this script.
+$axiomos_kernel?=@/dev/null
+
+using sysbus
+
+mach create
+machine LoadPlatformDescription @platforms/cpus/cortex-a78.repl
+
+sysbus LoadFdt @renode/probes/minimal-virt-stub.dtb 0x44000000 "dtb"
+sysbus LoadELF $axiomos_kernel
+cpu ResetVector 0x40080000

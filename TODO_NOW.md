@@ -4,18 +4,18 @@ full plans live in .hermes/plans/ — this file is the at-a-glance tracker
 follow the spec's phase order. stop gates between phases are real.
 
 phase 0 — precondition
-  [ ] design spec read (docs/superpowers/specs/2026-07-14-voln-vp-design.md)
-  [ ] axiomOS sibling repo confirmed buildable
+  [x] design spec read (docs/superpowers/specs/2026-07-14-voln-vp-design.md)
+  [x] axiomOS sibling repo confirmed buildable
 
 phase 1 — risk gate (probes only, no voln-vp structure)
-  [ ] 1.1 confirm axiomOS produces DTB-aware AArch64 ELF
-  [ ] 1.2 probes-only skeleton (renode/probes/, tools/, docs/probes/)
-  [ ] 1.3 minimal Pi 5 DTB stub
-  [ ] 1.4 stock ARMv8-A boot .resc
-  [ ] 1.5 UART capture python shim
-  [ ] 1.6 install renode, pin stock core model
-  [ ] 1.7 probe driver shell script
-  [ ] 1.8 RUN PROBE — record results to docs/probes/2026-07-15-armv8a-risk-gate.md
+  [x] 1.1 confirm axiomOS produces DTB-aware AArch64 ELF
+  [x] 1.2 probes-only skeleton (renode/probes/, tools/, docs/probes/)
+  [x] 1.3 minimal Pi 5 DTB stub
+  [x] 1.4 stock ARMv8-A boot .resc
+  [x] 1.5 UART capture (Renode file backend; legacy python shim retained)
+  [x] 1.6 install renode, pin stock core model (Cortex-A78, Renode 1.16.1)
+  [x] 1.7 probe driver shell script
+  [x] 1.8 RUN PROBE — PASS recorded in docs/probes/2026-07-30-armv8a-risk-gate.md
         -> PASS: proceed
         -> FAIL with diagnostic: iterate DTB / kernel entry
         -> HARD FAIL: spec says revisit backend choice. STOP.

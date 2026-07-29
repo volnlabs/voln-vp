@@ -44,18 +44,19 @@ calling Rust `_start`, and `_start` stores and parses that address.
 
 ## Reproduction
 
-The checked-in probe driver currently includes the `.resc` file but does not
-start the emulation or wire its expected capture file. The successful
-diagnostic therefore used Renode's built-in UART file backend and a bounded
+The cleaned probe driver uses Renode's built-in UART file backend and a bounded
 virtual-time run:
 
 ```sh
-renode --config /tmp/voln-vp-renode.config --disable-gui \
-  renode/probes/stock-armv8a.resc \
-  -e 'sysbus.uart0 CreateFileBackend @/tmp/uart-phase1-diagnostic.log true; emulation RunFor "0.1"; sysbus.cpu PC; currentTime; quit'
+tools/probe-armv8a.sh
 ```
 
-Renode reported exactly `00:00:00.100000000` of virtual execution.
+The driver creates a unique artifact directory under `/tmp`, passes the
+selected kernel through a generated safe symlink and positional wrapper, uses
+`CreateFileBackend` with immediate flush, and runs exactly 0.1 virtual seconds.
+An independent 90-second wall timeout catches simulator startup failures and
+hangs. Success requires both a zero process status and the expected marker in
+the UART artifact because Renode 1.16 can return zero for some Monitor errors.
 
 ## UART evidence
 
@@ -95,12 +96,10 @@ The raw temporary UART capture was 1,601 bytes over 20 lines with SHA-256
 - The DTB round-trip is valid but warns that the timer and UART nodes omit
   `interrupt-parent`. Add it when creating the Phase 2 board DTB; it is not
   required to reopen this gate.
-- Before treating `tools/probe-armv8a.sh` as the reproducible gate, update it
-  to start a bounded emulation, use `CreateFileBackend` with immediate flush,
-  pass the selected kernel path into the Renode script, and preserve simulator
-  exit-code discipline.
+- `tools/probe-armv8a.sh` now implements the reproducible gate and preserves
+  per-run UART and Renode logs for both passing and failing runs.
 
 ## Decision
 
-Proceed to Phase 2 after landing the Phase 1 harness cleanup and reconciling
-the tracker. The backend-choice stop condition was not triggered.
+Proceed to Phase 2. The Phase 1 harness cleanup and tracker reconciliation are
+complete, and the backend-choice stop condition was not triggered.
