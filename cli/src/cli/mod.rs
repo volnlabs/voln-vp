@@ -38,6 +38,9 @@ pub struct RunArgs {
     #[arg(long)]
     pub backend: Option<String>,
 
+    #[arg(long)]
+    pub dry_run: bool,
+
     #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
     pub extra: Vec<String>,
 }
@@ -59,5 +62,5 @@ pub fn run() {
 
 fn run_adapter(root: &Path, args: &RunArgs, verb: Verb) -> Result<()> {
     let spec = resolve_target_for(root, &args.board, args.backend.as_deref(), verb)?;
-    execute(&spec, &args.extra)
+    execute(&spec, &args.extra, args.dry_run)
 }

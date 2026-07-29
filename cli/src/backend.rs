@@ -78,7 +78,15 @@ pub fn resolve_target_for(
     })
 }
 
-pub fn execute(spec: &LaunchSpec, args: &[String]) -> Result<()> {
+pub fn execute(spec: &LaunchSpec, args: &[String], dry_run: bool) -> Result<()> {
+    if dry_run {
+        println!("backend: {}", spec.backend_name);
+        println!("board:   {}", spec.board_name);
+        println!("adapter: {}", spec.verb_path.display());
+        println!("args:    {args:?}");
+        return Ok(());
+    }
+
     let status = Command::new(&spec.verb_path).args(args).status()?;
     if status.success() {
         return Ok(());

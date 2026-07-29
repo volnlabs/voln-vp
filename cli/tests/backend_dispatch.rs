@@ -115,3 +115,19 @@ fn cli_propagates_adapter_exit_code() {
         .assert()
         .code(7);
 }
+
+#[cfg(unix)]
+#[test]
+fn dry_run_resolves_without_launching_adapter() {
+    let temporary = make_repo();
+
+    Command::cargo_bin("voln-vp")
+        .unwrap()
+        .env("VOLN_VP_ROOT", temporary.path())
+        .args(["run", "--board", "virt", "--dry-run"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("backend: qemu"))
+        .stdout(predicates::str::contains("board:   virt"))
+        .stdout(predicates::str::contains("run.sh"));
+}
