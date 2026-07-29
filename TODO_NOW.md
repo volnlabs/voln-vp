@@ -22,7 +22,7 @@ phase 1 — risk gate (probes only, no voln-vp structure)
 
 phase 2 — CLI + adapter contract + virt-pi5 boot
   [x] 2.1 workspace + cli crate skeleton (cargo build, --version)
-  [ ] 2.2 errors module
+  [x] 2.2 errors module
   [ ] 2.3 manifest types + validation (TDD, 4 cases)
   [ ] 2.4 backend discovery (TDD, 3 cases)
   [ ] 2.5 backend dispatch + run/test wiring (TDD, 4 cases)
