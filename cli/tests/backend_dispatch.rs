@@ -1,0 +1,117 @@
+use std::fs;
+use std::path::Path;
+
+use assert_cmd::Command;
+use tempfile::TempDir;
+use voln_vp::backend::{resolve_target, resolve_target_for};
+use voln_vp::manifest::Verb;
+
+fn make_repo() -> TempDir {
+    let temporary = TempDir::new().unwrap();
+    let root = temporary.path();
+
+    fs::create_dir_all(root.join("backends/qemu/adapters")).unwrap();
+    fs::write(
+        root.join("backends/qemu/manifest.toml"),
+        r#"
+name = "qemu"
+verbs = ["run", "test"]
+boards = ["virt"]
+"#,
+    )
+    .unwrap();
+    write_executable(&root.join("backends/qemu/adapters/run.sh"), 7);
+    write_executable(&root.join("backends/qemu/adapters/test.sh"), 0);
+
+    fs::create_dir_all(root.join("boards/virt")).unwrap();
+    fs::write(
+        root.join("boards/virt/board.toml"),
+        r#"
+name = "virt"
+memory = "1GB"
+default_backend = "qemu"
+backends = ["qemu"]
+"#,
+    )
+    .unwrap();
+
+    temporary
+}
+
+#[cfg(unix)]
+fn write_executable(path: &Path, exit_code: i32) {
+    use std::os::unix::fs::PermissionsExt;
+
+    fs::write(path, format!("#!/bin/sh\nexit {exit_code}\n")).unwrap();
+    fs::set_permissions(path, fs::Permissions::from_mode(0o755)).unwrap();
+}
+
+#[cfg(not(unix))]
+fn write_executable(path: &Path, _exit_code: i32) {
+    fs::write(path, "").unwrap();
+}
+
+#[test]
+fn resolves_default_backend_for_board() {
+    let temporary = make_repo();
+
+    let spec = resolve_target(temporary.path(), "virt", None).unwrap();
+
+    assert_eq!(spec.backend_name, "qemu");
+    assert_eq!(spec.verb_path.file_name().unwrap(), "run.sh");
+}
+
+#[test]
+fn explicit_backend_overrides_default() {
+    let temporary = make_repo();
+
+    let spec = resolve_target(temporary.path(), "virt", Some("qemu")).unwrap();
+
+    assert_eq!(spec.backend_name, "qemu");
+}
+
+#[test]
+fn test_verb_resolves_test_adapter() {
+    let temporary = make_repo();
+
+    let spec = resolve_target_for(temporary.path(), "virt", None, Verb::Test).unwrap();
+
+    assert_eq!(spec.verb_path.file_name().unwrap(), "test.sh");
+}
+
+#[test]
+fn unknown_board_errors_clearly() {
+    let temporary = make_repo();
+
+    let error = resolve_target(temporary.path(), "nope", None).unwrap_err();
+
+    assert_eq!(error.to_string(), "board not found: nope");
+}
+
+#[test]
+fn backend_unsupported_for_board_errors_clearly() {
+    let temporary = make_repo();
+
+    let error = resolve_target(temporary.path(), "virt", Some("renode")).unwrap_err();
+    let message = error.to_string();
+
+    assert!(
+        message.contains("does not declare support"),
+        "got: {message}"
+    );
+    assert!(message.contains("virt"), "got: {message}");
+    assert!(message.contains("renode"), "got: {message}");
+}
+
+#[cfg(unix)]
+#[test]
+fn cli_propagates_adapter_exit_code() {
+    let temporary = make_repo();
+
+    Command::cargo_bin("voln-vp")
+        .unwrap()
+        .env("VOLN_VP_ROOT", temporary.path())
+        .args(["run", "--board", "virt"])
+        .assert()
+        .code(7);
+}

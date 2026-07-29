@@ -25,7 +25,7 @@ phase 2 — CLI + adapter contract + virt-pi5 boot
   [x] 2.2 errors module
   [x] 2.3 manifest types + validation (TDD, 5 cases)
   [x] 2.4 backend discovery (TDD, 3 cases)
-  [ ] 2.5 backend dispatch + run/test wiring (TDD, 4 cases)
+  [x] 2.5 backend dispatch + run/test wiring (TDD, 6 cases)
   [ ] 2.6 qemu backend wrapped
   [ ] 2.7 renode backend manifest + doctor
   [ ] 2.8 virt-pi5 board manifest

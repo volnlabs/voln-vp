@@ -13,6 +13,17 @@ pub enum Verb {
     Doctor,
 }
 
+impl Verb {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Run => "run",
+            Self::Test => "test",
+            Self::Bench => "bench",
+            Self::Doctor => "doctor",
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct BackendManifest {
     pub name: String,

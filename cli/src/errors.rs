@@ -30,3 +30,12 @@ pub enum Error {
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
+
+impl Error {
+    pub fn exit_code(&self) -> i32 {
+        match self {
+            Self::SimulatorFailed { code, .. } if *code > 0 => *code,
+            _ => 1,
+        }
+    }
+}

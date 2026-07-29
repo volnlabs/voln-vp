@@ -1,4 +1,11 @@
-use clap::{Parser, Subcommand};
+use std::path::Path;
+
+use clap::{Args, Parser, Subcommand};
+
+use crate::backend::{execute, resolve_target_for};
+use crate::config::repo_root;
+use crate::errors::Result;
+use crate::manifest::Verb;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -16,17 +23,39 @@ pub enum Command {
     /// Verify required simulators and toolchains are installed
     Doctor,
     /// Run a board under a backend
-    Run,
+    Run(RunArgs),
     /// Run test suites for a board under a backend
-    Test,
+    Test(RunArgs),
+}
+
+#[derive(Args, Clone, Debug)]
+pub struct RunArgs {
+    #[arg(long)]
+    pub board: String,
+
+    #[arg(long)]
+    pub backend: Option<String>,
+
+    #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+    pub extra: Vec<String>,
 }
 
 pub fn run() {
     let cli = Cli::parse();
-
-    match cli.command {
+    let root = repo_root();
+    let result = match cli.command {
         Command::Doctor => todo!("Task 2.7"),
-        Command::Run => todo!("Task 2.5"),
-        Command::Test => todo!("Task 2.5"),
+        Command::Run(args) => run_adapter(&root, &args, Verb::Run),
+        Command::Test(args) => run_adapter(&root, &args, Verb::Test),
+    };
+
+    if let Err(error) = result {
+        eprintln!("error: {error}");
+        std::process::exit(error.exit_code());
     }
+}
+
+fn run_adapter(root: &Path, args: &RunArgs, verb: Verb) -> Result<()> {
+    let spec = resolve_target_for(root, &args.board, args.backend.as_deref(), verb)?;
+    execute(&spec, &args.extra)
 }
