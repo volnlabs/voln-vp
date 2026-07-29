@@ -33,9 +33,15 @@ phase 2 — CLI + adapter contract + virt-pi5 boot
   [x] 2.10 mailbox stub Python peripheral
   [x] 2.11 virt-pi5 DTB (real, not phase 1 stub)
   [x] 2.12 virt-pi5.repl + boot script
-  [ ] 2.13 verify boot-to-userspace
+  [!] 2.13 verify boot-to-userspace — BLOCKED: Renode issues high-half
+        virtual accesses as unmapped system-bus accesses; EL0 marker absent.
+        Evidence: docs/probes/2026-07-30-phase2-virt-pi5-boot.md
 
 phase 3 — RP1 models + driver suite
+  BLOCKED by 2.13. Do not build peripheral models before the CPU can reach
+  userspace. Audit also found no installed RP2040/Pico model; `picosoc` is
+  PicoRV32, and interconnect/PCIe modeling requires C# rather than a Renode
+  request-based Python peripheral.
   [ ] 3.1 RP2040 reuse audit (BLOCKER for 3.2-3.6)
   [ ] 3.2 PCIe RC python peripheral (5-day budget)
   [ ] 3.3 RP1 GPIO (TDD)
@@ -52,6 +58,7 @@ phase 3 — RP1 models + driver suite
   [ ] 3.14 full driver suite green
 
 phase 4 — sensors, injection, trace replay
+  BLOCKED by 2.13 and the absence of guest I²C/SPI/ADC driver behavior.
   [ ] 4.1 trace format v1 spec (one page)
   [ ] 4.2 trace parser (TDD, 7 cases)
   [ ] 4.3 trace writer (TDD, 2 cases)
@@ -65,6 +72,8 @@ phase 4 — sensors, injection, trace replay
   [ ] 4.11 verify full suite green
 
 phase 5 — CI hardening, nightly, error handling
+  BLOCKED for scenario wiring by 2.13. CLI-only CI may proceed separately
+  after the backend decision, but cannot satisfy the planned green pipeline.
   [ ] 5.1 CI log helper
   [ ] 5.2 per-commit driver
   [ ] 5.3 nightly driver
