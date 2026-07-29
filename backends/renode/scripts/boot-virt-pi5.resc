@@ -1,0 +1,13 @@
+:name: axiomOS virt-pi5 boot
+
+$axiomos_kernel?=@/dev/null
+$virt_pi5_dtb?=@/dev/null
+
+using sysbus
+
+mach create
+machine LoadPlatformDescription @boards/virt-pi5/renode/virt-pi5.repl
+
+sysbus LoadFdt $virt_pi5_dtb 0x10000000 "dtb"
+sysbus LoadELF $axiomos_kernel
+cpu ResetVector 0x80000

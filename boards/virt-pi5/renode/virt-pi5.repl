@@ -1,0 +1,30 @@
+cpu: CPU.ARMv8A @ sysbus
+    cpuType: "cortex-a78"
+    genericInterruptController: gic
+
+timer: Timers.ARM_GenericTimer @ cpu
+    frequency: 54000000
+    EL3PhysicalTimerIRQ -> gic#0@29
+    EL1PhysicalTimerIRQ -> gic#0@30
+    EL1VirtualTimerIRQ -> gic#0@27
+    NonSecureEL2PhysicalTimerIRQ -> gic#0@26
+    NonSecureEL2VirtualTimerIRQ -> gic#0@28
+
+gic: IRQControllers.ARM_GenericInterruptController @ {
+        sysbus new Bus.BusMultiRegistration { address: 0x107fff9000; size: 0x1000; region: "distributor" };
+        sysbus new Bus.BusMultiRegistration { address: 0x107fffa000; size: 0x2000; region: "cpuInterface" }
+    }
+    architectureVersion: .GICv2
+    supportsTwoSecurityStates: true
+
+ram: Memory.MappedMemory @ sysbus 0x0
+    // A 2 GiB Pi 5 configuration keeps the model runnable on CI workers.
+    size: 0x80000000
+
+uart0: UART.PL011 @ sysbus 0x107d001000
+    -> gic@121
+
+mailbox: Python.PythonPeripheral @ sysbus 0x107d00b880
+    size: 0x40
+    initable: true
+    filename: @backends/renode/peripherals/mailbox.py
