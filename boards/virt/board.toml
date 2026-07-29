@@ -1,0 +1,4 @@
+name = "virt"
+memory = "1GB"
+default_backend = "qemu"
+backends = ["qemu"]
