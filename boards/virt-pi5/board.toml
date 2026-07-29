@@ -1,0 +1,17 @@
+name = "virt-pi5"
+memory = "8GB"
+default_backend = "renode"
+backends = ["renode"]
+
+[memory_map]
+ram_start = "0x00000000"
+ram_size = "0x200000000"
+
+[peripherals]
+gic_distributor = "0x107fff9000"
+gic_cpu = "0x107fffa000"
+uart0 = "0x107d001000"
+mailbox = "0x107d00b880"
+
+[dtb]
+path = "renode/virt-pi5.dts"
