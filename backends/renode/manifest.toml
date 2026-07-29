@@ -1,0 +1,3 @@
+name = "renode"
+verbs = ["run", "test", "doctor"]
+boards = ["virt-pi5"]

@@ -27,7 +27,7 @@ phase 2 — CLI + adapter contract + virt-pi5 boot
   [x] 2.4 backend discovery (TDD, 3 cases)
   [x] 2.5 backend dispatch + run/test wiring (TDD, 6 cases)
   [x] 2.6 qemu backend wrapped
-  [ ] 2.7 renode backend manifest + doctor
+  [x] 2.7 renode backend manifest + doctor
   [ ] 2.8 virt-pi5 board manifest
   [ ] 2.9 --dry-run flag
   [ ] 2.10 mailbox stub python peripheral

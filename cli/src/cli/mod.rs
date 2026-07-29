@@ -7,6 +7,8 @@ use crate::config::repo_root;
 use crate::errors::Result;
 use crate::manifest::Verb;
 
+pub mod doctor;
+
 #[derive(Debug, Parser)]
 #[command(
     name = "voln-vp",
@@ -44,7 +46,7 @@ pub fn run() {
     let cli = Cli::parse();
     let root = repo_root();
     let result = match cli.command {
-        Command::Doctor => todo!("Task 2.7"),
+        Command::Doctor => doctor::run(&root),
         Command::Run(args) => run_adapter(&root, &args, Verb::Run),
         Command::Test(args) => run_adapter(&root, &args, Verb::Test),
     };
