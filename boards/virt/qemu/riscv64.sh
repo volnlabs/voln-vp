@@ -1,19 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-AXIOMOS_ROOT="${AXIOMOS_ROOT:-/home/utkarsh/axiomos}"
-KERNEL="${AXIOMOS_KERNEL:-$AXIOMOS_ROOT/kernel/demos/riscv/target/riscv64gc-unknown-none-elf/debug/riscv-kernel-demo}"
+AXIOMOS_ROOT="${AXIOMOS_ROOT:-/home/utkarsh/Work/axiomOS}"
 
-if [[ ! -f "$KERNEL" ]]; then
-  echo "RISC-V kernel not found: $KERNEL" >&2
-  echo "Build it with: $AXIOMOS_ROOT/scripts/build-riscv.sh" >&2
+if [[ ! -f "$AXIOMOS_ROOT/Cargo.toml" ]]; then
+  echo "axiomOS repository not found: $AXIOMOS_ROOT" >&2
   exit 2
 fi
 
-exec qemu-system-riscv64 \
-  -machine virt \
-  -bios default \
-  -kernel "$KERNEL" \
-  -nographic \
-  -serial mon:stdio \
-  "$@"
+cd -- "$AXIOMOS_ROOT"
+exec cargo xtask run riscv -- "$@"
