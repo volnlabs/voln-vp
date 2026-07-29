@@ -21,7 +21,7 @@ phase 1 — risk gate (probes only, no voln-vp structure)
         -> HARD FAIL: spec says revisit backend choice. STOP.
 
 phase 2 — CLI + adapter contract + virt-pi5 boot
-  [ ] 2.1 workspace + cli crate skeleton (cargo build, --version)
+  [x] 2.1 workspace + cli crate skeleton (cargo build, --version)
   [ ] 2.2 errors module
   [ ] 2.3 manifest types + validation (TDD, 4 cases)
   [ ] 2.4 backend discovery (TDD, 3 cases)
