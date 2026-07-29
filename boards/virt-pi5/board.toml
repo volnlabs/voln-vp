@@ -1,11 +1,11 @@
 name = "virt-pi5"
-memory = "2GB"
+memory = "8GB"
 default_backend = "renode"
 backends = ["renode"]
 
 [memory_map]
 ram_start = "0x00000000"
-ram_size = "0x80000000"
+ram_size = "0x200000000"
 
 [peripherals]
 gic_distributor = "0x107fff9000"

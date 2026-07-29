@@ -29,7 +29,7 @@
 
     memory@0 {
         device_type = "memory";
-        reg = <0x0 0x0 0x0 0x80000000>;
+        reg = <0x0 0x0 0x2 0x0>;
     };
 
     gic: interrupt-controller@107fff9000 {

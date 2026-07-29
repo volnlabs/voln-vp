@@ -1,4 +1,4 @@
-# Phase 2 virt-pi5 boot gate — BLOCKED
+# Phase 2 virt-pi5 boot gate — MMU resolved, userspace still blocked
 
 Date: 2026-07-30
 
@@ -31,14 +31,14 @@ The model deliberately starts with one CPU. Multi-core bring-up cannot
 resolve a single-core execution failure and would make the gate harder to
 diagnose.
 
-## Result
+## Initial result and corrected diagnosis
 
-**BLOCKED.** The ELF, DTB, platform description, GIC, UART, and mailbox stub
-load, but the userspace marker is never emitted. During execution Renode
-treats axiomOS high-half virtual instruction/data addresses as physical
-system-bus addresses. The accesses therefore fall outside modeled RAM,
-produce repeated unmapped-access diagnostics, and leave the UART capture
-empty.
+The initial run entered Renode's default EL3 reset state. axiomOS's direct
+kernel entry handles EL2 and EL1, but treats every non-EL2 entry as though it
+were already EL1. It therefore programmed `TTBR0_EL1`, `TTBR1_EL1`,
+`TCR_EL1`, and `SCTLR_EL1` while execution remained at EL3. Because
+`SCTLR_EL3.M` was clear, Renode correctly sent EL3 high-half accesses to the
+system bus without translation.
 
 Representative diagnostics from the bounded probe were:
 
@@ -52,9 +52,22 @@ The sequential writes continued through at least
 `0xFFFF8000402CD8F8`. Renode exited zero, while the UART file was empty
 (SHA-256
 `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`).
-That diagnostic run used the Phase 1 DTB, whose RAM begins at `0x40000000`;
-the `+0x40000000` portion reflects that input, but it does not explain the
-untranslated `0xFFFF8000...` high half reaching the system bus.
+That diagnostic run used the Phase 1 DTB, whose RAM begins at `0x40000000`.
+The result did not establish a Renode MMU defect.
+
+Renode's official direct-kernel ARMv8-A pattern is now applied before
+execution:
+
+```text
+cpu SetAvailableExceptionLevels false false
+gic DisabledSecurity true
+```
+
+The model also initializes the PL011 to the state normally handed off by Pi
+firmware. With those corrections, the high-half warnings disappear and the
+unmodified kernel reaches physical RP1/PCIe initialization. This validates
+Renode's page-table translation path; no Renode fork or high-address alias is
+required.
 
 Renode process exit status alone cannot pass this gate: Renode 1.16 can
 return success after Monitor errors, and a bounded run can finish without
@@ -74,18 +87,27 @@ The adapter prints the `/tmp/voln-vp-phase2.*` artifact directory. It
 contains `renode.log`, `uart.log`, the generated wrapper script, and symlinks
 to the exact kernel and DTB used.
 
-## Stop-gate decision
+## Current result
 
-Do not start the RP1, sensor, trace, or CI scenario phases and do not report
-Phase 2 as passing. Continuing requires one of these architecture decisions:
+**MMU architecture resolved; userspace gate still blocked.** The corrected
+run emits:
 
-1. Fix or extend Renode ARMv8-A address-translation behavior so guest virtual
-   addresses are translated before system-bus access.
-2. Add a documented high-address alias in the machine model. This is a
-   simulation divergence and needs explicit acceptance plus validation that
-   it does not hide MMU bugs.
-3. Revisit the primary backend choice, as required by the design's ARMv8-A
-   risk gate.
+```text
+PI5_BENCH_FAIL stage=rp1_irq_route error=PcieLinkDown(0)
+kernel panicked ... memory allocation of 20971520 bytes failed
+```
 
-Changing axiomOS to add a simulation-only MMU path is not an in-scope
-workaround: the design requires an unmodified kernel image.
+The first line is expected until the Phase 3 PCIe/RP1 model exists and proves
+the kernel reached real Pi peripheral initialization after enabling the MMU.
+The second line is the immediate userspace blocker: the embedded 20 MiB
+rootfs allocation exceeds the current guest heap's usable contiguous
+capacity, even with the specified 8 GiB DTB. That is an axiomOS heap/rootfs
+contract issue, not a Renode translation issue.
+
+RP1 model unit development and Monitor-level register tests may now proceed.
+Guest userspace integration and the Phase 2 PASS remain blocked until the
+axiomOS allocation failure is fixed. A high-address alias is neither needed
+nor permitted in the canonical backend.
+
+Artifacts for the corrected run:
+`/tmp/voln-vp-phase2.CfjCwv`.

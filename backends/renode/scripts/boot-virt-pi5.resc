@@ -8,6 +8,17 @@ using sysbus
 mach create
 machine LoadPlatformDescription @boards/virt-pi5/renode/virt-pi5.repl
 
+# Renode ARMv8-A CPUs reset in EL3. The raw axiomOS kernel follows the QEMU
+# direct-kernel contract and expects to enter at EL1 without an EL3/EL2 firmware
+# stage. Disable the unavailable higher exception levels before loading it.
+cpu SetAvailableExceptionLevels false false
+gic DisabledSecurity true
+
+# Pi firmware normally leaves the debug PL011 usable for direct-kernel entry.
+# Reproduce that handoff state for the bare ELF load.
+uart0 WriteDoubleWord 0x30 0x301
+uart0 WriteDoubleWord 0x2c 0x40
+
 sysbus LoadFdt $virt_pi5_dtb 0x10000000 "dtb"
 sysbus LoadELF $axiomos_kernel
 cpu ResetVector 0x80000
